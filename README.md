@@ -1,6 +1,6 @@
 # Daily Risk Briefer
 
-An automated AI agent for municipal operations that monitors localized street safety, detects hazard clusters, and delivers a ranked daily risk report of motor vehicle collisions[cite: 1, 2].
+An automated AI agent for municipal operations that monitors localized street safety, detects hazard clusters, and delivers a ranked daily risk report of motor vehicle collisions.
 
 ## 📖 Overview
 
