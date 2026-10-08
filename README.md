@@ -52,6 +52,5 @@ No Data Fabrication: The system prompt strictly prohibits inventing crash data; 
 Graceful Degradation: A Python try-except block in the tool prevents stack trace leaks by returning a clean failure string during Socrata API timeouts.
 
 👥 Owners
-James Alvarado
-Erick Marcatoma
+James Alvarado, Erick Marcatoma
 
