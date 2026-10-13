@@ -56,7 +56,13 @@
 }
 ```
 
-**Decide and write down on Day 1:** nullable/optional fields, timezone handling (proposal: ISO 8601 with offset, display in America/New_York), `data_source` values (`fixture` | `live`), and the borough list (Manhattan, Brooklyn, Queens, Bronx, Staten Island).
+**Day 1 contract decisions:**
+
+- `borough` is required and must be one of Manhattan, Brooklyn, Queens, Bronx, or Staten Island. `question` is required, trimmed, and 1–500 characters; unknown request fields are rejected.
+- Every field in a `success` response is required. `incidents` may be empty; `source_url` is the only nullable/optional incident field.
+- `reported_at` is required ISO 8601 with a timezone offset. The UI displays it in `America/New_York`.
+- `data_source` is `fixture` or `live`. Fixture responses and records must be explicitly labeled fictional and not live.
+- Non-success responses carry `status`, `borough`, and `message`; `data_source` may be null when the source is unavailable.
 
 **Fixtures:** obviously fictional labels (e.g. `FIXTURE-001`), with source timestamps. Keep raw 511NY fields behind a normalization adapter.
 

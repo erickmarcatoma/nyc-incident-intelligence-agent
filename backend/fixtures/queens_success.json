@@ -1,0 +1,20 @@
+{
+  "status": "success",
+  "borough": "Queens",
+  "data_source": "fixture",
+  "overview": "Fixture demonstration only. No live incident data was retrieved.",
+  "incidents": [
+    {
+      "id": "FIXTURE-001",
+      "location": "Fictional fixture location in Queens (not a real incident)",
+      "type": "Fictional fixture",
+      "reported_status": "Fictional demonstration only; not a real incident",
+      "reported_at": "2026-10-08T07:15:00-04:00",
+      "source": "NYC Incident Intelligence Agent demo fixture (not 511NY)",
+      "source_url": null
+    }
+  ],
+  "potential_impacts": "None asserted; fixture content is fictional.",
+  "data_freshness": "Fixture timestamp: 2026-10-08T07:15:00-04:00. This is not live or current incident data.",
+  "limitations": "This is a fictional fixture for API/UI integration only. No 511NY request was made; do not use it as operational information."
+}
