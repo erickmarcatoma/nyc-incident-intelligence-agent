@@ -1,0 +1,6 @@
+{
+	"status": "no_results",
+	"borough": "Brooklyn",
+	"data_source": "fixture",
+	"message": "No matching incidents were returned by the source for the selected area and query."
+}

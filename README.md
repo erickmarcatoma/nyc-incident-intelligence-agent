@@ -1,6 +1,6 @@
 # NYC Incident Intelligence Agent
 
-A fixture-backed prototype for requesting source-grounded traffic incident briefings by NYC borough. The Day 1 API returns fictional fixture data only; it does not query 511NY and must not be used for operational decisions.
+A fixture-backed prototype for requesting traffic incident briefings by NYC borough. The current API returns demonstration fixtures only; it does not query 511NY or Claude and must not be used for operational decisions.
 
 ## Backend setup
 
@@ -19,7 +19,17 @@ The API runs at `http://127.0.0.1:8000`; interactive API documentation is at `ht
 
 ## Day 1 contract
 
-`POST /api/briefing` accepts a borough (`Manhattan`, `Brooklyn`, `Queens`, `Bronx`, or `Staten Island`) and a nonblank question of up to 500 characters. It returns a `success` response with a fixture label, incident details, freshness, and limitations. `reported_at` timestamps include an ISO 8601 timezone offset; `source_url` is optional and may be `null`.
+`POST /api/briefing` accepts a borough (`Manhattan`, `Brooklyn`, `Queens`, `Bronx`, or `Staten Island`) and a nonblank question of up to 500 characters. The fixture demo assigns one response state to each borough so all UI states can be exercised:
+
+| Borough | Response | Fixture |
+|---|---|---|
+| Queens | `success` | Fictional incident briefing |
+| Brooklyn | `no_results` | Empty result |
+| Manhattan | `data_unavailable` | Source-unavailable state |
+| Bronx | `model_unavailable` | Model-unavailable state |
+| Staten Island | `data_unavailable` | No fixture configured |
+
+These statuses are demonstrations, not results of live source or model calls. Fixture responses are labeled in the UI. `reported_at` timestamps include an ISO 8601 timezone offset; `source_url` is optional and may be `null`.
 
 Example request:
 

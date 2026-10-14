@@ -1,0 +1,6 @@
+{
+  "status": "data_unavailable",
+  "borough": "Manhattan",
+  "data_source": "fixture",
+  "message": "Incident data is currently unavailable. A reliable briefing cannot be generated from this request."
+}

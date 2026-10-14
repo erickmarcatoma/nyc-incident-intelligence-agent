@@ -42,14 +42,22 @@ def test_briefing_rejects_invalid_borough_and_blank_question() -> None:
 
 
 def test_briefing_accepts_every_contract_borough() -> None:
-    for borough in ("Manhattan", "Brooklyn", "Queens", "Bronx", "Staten Island"):
+    expected_statuses = {
+        "Manhattan": "data_unavailable",
+        "Brooklyn": "no_results",
+        "Queens": "success",
+        "Bronx": "model_unavailable",
+        "Staten Island": "data_unavailable",
+    }
+
+    for borough, expected_status in expected_statuses.items():
         response = client.post(
             "/api/briefing",
             json={"borough": borough, "question": "Any fixture incidents?"},
         )
         assert response.status_code == 200
         assert response.json()["borough"] == borough
-        assert borough in response.json()["incidents"][0]["location"]
+        assert response.json()["status"] == expected_status
 
 
 def test_frontend_development_origin_can_call_api() -> None:

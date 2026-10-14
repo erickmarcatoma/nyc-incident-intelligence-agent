@@ -1,21 +1,10 @@
-import json
-from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.schemas import (
-    BriefingRequest,
-    BriefingResponse,
-    BriefingSuccessResponse,
-    DataSource,
-)
-
-
-FIXTURE_PATH = Path(__file__).parent / "fixtures" / "queens_success.json"
-FIXTURE_RESPONSE = BriefingSuccessResponse.model_validate(
-    json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
-)
+from backend.schemas import BriefingRequest, BriefingResponse
+from backend.tools import query_511ny_incidents
 
 app = FastAPI(
     title="NYC Incident Intelligence Agent API",
@@ -33,19 +22,5 @@ app.add_middleware(
 
 
 @app.post("/api/briefing", response_model=BriefingResponse)
-def create_briefing(request: BriefingRequest) -> BriefingSuccessResponse:
-    incident = FIXTURE_RESPONSE.incidents[0].model_copy(
-        update={
-            "location": (
-                f"Fictional fixture location in {request.borough.value} "
-                "(not a real incident)"
-            )
-        }
-    )
-    return FIXTURE_RESPONSE.model_copy(
-        update={
-            "borough": request.borough,
-            "data_source": DataSource.FIXTURE,
-            "incidents": [incident],
-        }
-    )
+def create_briefing(request: BriefingRequest) -> dict[str, Any]:
+    return query_511ny_incidents(request.borough)

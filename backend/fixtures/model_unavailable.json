@@ -1,0 +1,6 @@
+{
+  "status": "model_unavailable",
+  "borough": "Bronx",
+  "data_source": "fixture",
+  "message": "The briefing model is unavailable in this demonstration. No model request was made and no briefing was generated."
+}
