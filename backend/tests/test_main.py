@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend import main
-from backend.agent import AgentUnavailableError
+from backend.agent import AgentProtocolError, AgentUnavailableError
 from backend.main import app
 from backend.schemas import Borough
 from backend.tools import IncidentDataUnavailableError
@@ -149,6 +149,25 @@ def test_agent_failure_returns_model_unavailable(
             "The briefing model is currently unavailable. Please try again later."
         ),
     }
+
+
+def test_invalid_agent_briefing_returns_model_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_agent(question: str, borough: Borough) -> dict[str, Any]:
+        raise AgentProtocolError("The generated briefing was unsupported.")
+
+    monkeypatch.setattr(main, "run_agent", fail_agent)
+    response = client.post(
+        "/api/briefing",
+        json={"borough": "Queens", "question": "Any incidents?"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "model_unavailable"
+    assert response.json()["message"] == (
+        "The briefing model is currently unavailable. Please try again later."
+    )
 
 
 def test_data_source_failure_returns_data_unavailable(

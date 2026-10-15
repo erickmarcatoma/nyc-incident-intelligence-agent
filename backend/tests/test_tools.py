@@ -53,7 +53,9 @@ def test_query_maps_real_dataset_fields_and_requests_selected_borough(
 
     assert captured["url"] == tools.DATASET_URL
     assert captured["params"]["$where"] == "borough = 'QUEENS'"
+    assert captured["params"]["$order"] == "crash_date DESC, crash_time DESC"
     assert captured["params"]["$limit"] == "50"
+    assert captured["timeout"] == tools.REQUEST_TIMEOUT_SECONDS
     assert captured["headers"] == {"X-App-Token": "test-token"}
     assert result["status"] == "success"
     assert result["borough"] == "Queens"
@@ -136,6 +138,67 @@ def test_query_rejects_unusable_dataset_records(
 
     with pytest.raises(IncidentDataUnavailableError, match="missing required field"):
         query_nyc_open_data_incidents("Queens")
+
+
+def test_query_rejects_records_outside_selected_borough(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        tools.httpx,
+        "get",
+        lambda *args, **kwargs: FakeResponse(
+            [collision_record(borough="BROOKLYN")]
+        ),
+    )
+
+    with pytest.raises(
+        IncidentDataUnavailableError, match="outside the requested borough"
+    ):
+        query_nyc_open_data_incidents("Queens")
+
+
+def test_query_rejects_unexpected_response_shape(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        tools.httpx,
+        "get",
+        lambda *args, **kwargs: FakeResponse({"results": [collision_record()]}),
+    )
+
+    with pytest.raises(
+        IncidentDataUnavailableError, match="unexpected response format"
+    ):
+        query_nyc_open_data_incidents("Queens")
+
+
+def test_query_preserves_missing_counts_and_uses_coordinates_for_location(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        tools.httpx,
+        "get",
+        lambda *args, **kwargs: FakeResponse(
+            [
+                collision_record(
+                    on_street_name=None,
+                    cross_street_name=None,
+                    latitude="40.7282",
+                    longitude="-73.7949",
+                    number_of_persons_injured=None,
+                    number_of_persons_killed=None,
+                )
+            ]
+        ),
+    )
+
+    result = query_nyc_open_data_incidents("Queens")
+
+    incident = result["incidents"][0]
+    assert incident["location"] == "Near latitude 40.7282, longitude -73.7949"
+    assert incident["reported_status"] == (
+        "Reported persons injured: not reported; persons killed: not reported."
+    )
 
 
 def test_query_omits_app_token_when_not_configured(
