@@ -149,10 +149,10 @@ root: README.md, PLAN.md, .gitignore, .env.example
 
 | Who | Tasks |
 |---|---|
-| **Both** | Deploy the full path. Run all evals against the deployed app. Finish README (setup, run, known limits, fixture-vs-live status). Rehearse the demo. Each partner must be able to explain the full cycle: user → Claude → tool → backend → Claude → UI. |
+| **Both** | Deployment is out of scope. Run all evals locally. Finish README (setup, local run, known limits, and live-data status). Rehearse the local demo. Each partner must be able to explain the full cycle: user → Claude → tool → backend → Claude → UI. |
 | **Demo order** | Landing page → borough selection → natural-language question → visible loading state → source-grounded briefing → source timestamps → one failure test and the permission boundary. |
 
-**Exit test:** Deployed end-to-end demo passes. If only fixtures work, label the demo as fixture-backed and disclose the live-data limitation.
+**Exit test:** Local end-to-end demo passes. Disclose that NYC Open Data contains historical crash reports, not real-time traffic conditions. If Anthropic credentials are unavailable, verify and disclose the model-unavailable state; do not substitute fixture data.
 
 ---
 
@@ -175,7 +175,7 @@ root: README.md, PLAN.md, .gitignore, .env.example
 - [ ] Browser flow works with no terminal use by the end user
 - [ ] Claude requests the tool, consumes results, returns only supported claims
 - [ ] All four statuses have honest UI states
-- [ ] Evals 1–7 pass on the deployed app
+- [ ] Evals 1–7 pass locally
 - [ ] `git log --all -- .env` is empty; no key in frontend code, screenshots, or commits
 - [ ] README states clearly whether data is live or fixture
 - [ ] Both partners can explain the full cycle

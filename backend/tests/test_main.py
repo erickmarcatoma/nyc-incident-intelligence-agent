@@ -109,6 +109,35 @@ def test_frontend_development_origin_can_call_api() -> None:
     assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
 
 
+def test_frontend_origins_can_be_configured_without_wildcards(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "FRONTEND_ORIGINS",
+        "https://app.example.com, https://admin.example.com, ",
+    )
+
+    assert main._frontend_origins() == [
+        "https://app.example.com",
+        "https://admin.example.com",
+    ]
+
+
+def test_empty_frontend_origins_do_not_enable_cross_origin_access(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FRONTEND_ORIGINS", "")
+
+    assert main._frontend_origins() == []
+
+
+def test_health_check_returns_ok() -> None:
+    response = client.get("/healthz")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
 def test_briefing_passes_question_and_borough_to_agent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

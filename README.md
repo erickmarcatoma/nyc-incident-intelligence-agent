@@ -19,6 +19,24 @@ python -m uvicorn backend.main:app --reload
 
 The API runs at `http://127.0.0.1:8000`; interactive API documentation is at `http://127.0.0.1:8000/docs`.
 
+## Optional local Docker backend
+
+To run the backend in a local Docker container, build the image from the
+repository root:
+
+```powershell
+docker build -t nyc-incident-intelligence-backend .
+docker run --rm --env-file .env -p 8000:8000 nyc-incident-intelligence-backend
+```
+
+The container runs as a non-root user and listens on port `8000` by default
+(`PORT` can override the container port). Configure `ANTHROPIC_API_KEY` in the
+runtime `.env` file; secrets are excluded from the build context and are not
+copied into the image. Set `FRONTEND_ORIGINS` to a comma-separated list of
+trusted frontend origins if needed; the default allows the two local Vite
+origins only. `GET /healthz` is the container health check. No hosted deployment
+is configured or required for this project.
+
 ## Run the frontend
 
 Start the backend as described above. In a second PowerShell window, from the repository root:
@@ -60,4 +78,27 @@ python -m pytest backend\tests
 
 Keep `.env` out of version control. A valid `ANTHROPIC_API_KEY` is required to generate summaries. The NYC Open Data endpoint can be queried without a token; if `NYC_OPEN_DATA_APP_TOKEN` is set, the backend sends it only to data.cityofnewyork.us.
 
-The 511NY feed remains unverified and is not used. See [backend/SOURCE_NOTES.md](./backend/SOURCE_NOTES.md) for source details and limitations.
+## Local demo checklist
+
+1. Configure a valid `ANTHROPIC_API_KEY` in the repository-root `.env` file.
+   `NYC_OPEN_DATA_APP_TOKEN` is optional.
+2. Start the backend and frontend using the instructions above.
+3. Confirm the backend is healthy at `http://127.0.0.1:8000/healthz`, then open
+   `http://127.0.0.1:5173`.
+4. Select a borough and ask for recent collision reports. Check the borough,
+   record links, New York timestamps, freshness, and limitations in the result.
+5. Rehearse one failure state: stop the backend to show the connection error,
+   or temporarily use an invalid Anthropic key to show `model_unavailable`.
+   Restore the valid key before normal use.
+
+If no Anthropic key is configured, the NYC Open Data tool can still be tested
+directly, but a full briefing request will return `model_unavailable`; the app
+does not substitute fixture data. Automated backend evals mock Claude and source
+responses so they run without credentials. Run them with
+`python -m pytest backend\tests`.
+
+The app uses NYC Open Data's Motor Vehicle Collisions - Crashes dataset, not
+511NY. The source contains historical collision reports, may lag by months, and
+does not provide current traffic or road-closure status. See
+[backend/SOURCE_NOTES.md](./backend/SOURCE_NOTES.md) for verified source details
+and limitations.

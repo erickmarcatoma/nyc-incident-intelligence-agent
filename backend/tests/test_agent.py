@@ -153,6 +153,36 @@ def test_validate_agent_response_accepts_supported_three_record_briefing() -> No
     assert len(result["incidents"]) == 3
 
 
+def test_validate_agent_response_accepts_injury_count_from_individual_record() -> None:
+    tool_result = successful_tool_result()
+    incidents = tool_result["incidents"]
+    assert isinstance(incidents, list)
+    for collision_id, injured in (("4905716", "1"), ("4905717", "0")):
+        incident = dict(incidents[0])
+        incident["id"] = collision_id
+        incident["reported_status"] = (
+            f"Reported persons injured: {injured}; persons killed: 0."
+        )
+        incident["source_url"] = (
+            "https://data.cityofnewyork.us/resource/"
+            f"h9gi-nx95.json?collision_id={collision_id}"
+        )
+        incidents.append(incident)
+
+    result = validate_agent_response(
+        tool_result,
+        {
+            "overview": "One collision reported two people injured.",
+            "potential_impacts": (
+                "These historical reports do not establish current traffic."
+            ),
+        },
+        agent.Borough.QUEENS,
+    )
+
+    assert result["status"] == "success"
+
+
 @pytest.mark.parametrize(
     ("generated", "message"),
     [
@@ -174,6 +204,13 @@ def test_validate_agent_response_accepts_supported_three_record_briefing() -> No
             {
                 "overview": "One collision is currently active in Queens.",
                 "potential_impacts": "Historical records do not show current traffic.",
+            },
+            "current traffic conditions",
+        ),
+        (
+            {
+                "overview": "A 2018 collision is still blocking Queens traffic.",
+                "potential_impacts": "Historical records do not establish current conditions.",
             },
             "current traffic conditions",
         ),

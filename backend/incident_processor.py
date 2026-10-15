@@ -42,7 +42,9 @@ _INJURY_COUNT_CLAIM = re.compile(
 )
 _CURRENT_CONDITION_CLAIM = re.compile(
     r"\b(?:currently\s+(?:active|ongoing|closed|open|clear|congested|"
-    r"affecting)|(?:is|remains)\s+(?:closed|open|clear|congested))\b",
+    r"affecting|blocking|causing)|(?:is|remains|stays)\s+"
+    r"(?:active|ongoing|closed|open|clear|congested|affecting|blocking|causing)|"
+    r"still\s+(?:active|ongoing|closed|open|clear|congested|affecting|blocking))\b",
     re.IGNORECASE,
 )
 
@@ -58,8 +60,10 @@ def _number_value(value: str) -> int:
 def _validate_count_claims(
     text: str, briefing: BriefingSuccessResponse
 ) -> None:
+    incident_count = len(briefing.incidents)
     for match in _INCIDENT_COUNT_CLAIM.finditer(text):
-        if _number_value(match.group(1)) != len(briefing.incidents):
+        count = _number_value(match.group(1))
+        if count == 0 or count > incident_count:
             raise AgentResponseValidationError(
                 "The briefing reports an unsupported number of incidents."
             )
@@ -84,7 +88,10 @@ def _validate_count_claims(
         known_counts = (
             injury_counts if match.group(2).casefold() == "injured" else fatality_counts
         )
-        if len(known_counts) != len(briefing.incidents) or count != sum(known_counts):
+        supported_counts = set(known_counts)
+        if len(known_counts) == incident_count:
+            supported_counts.add(sum(known_counts))
+        if count not in supported_counts:
             raise AgentResponseValidationError(
                 "The briefing reports an unsupported injury or fatality count."
             )
@@ -94,7 +101,10 @@ def _validate_count_claims(
         known_counts = (
             injury_counts if match.group(2).casefold() == "injuries" else fatality_counts
         )
-        if len(known_counts) != len(briefing.incidents) or count != sum(known_counts):
+        supported_counts = set(known_counts)
+        if len(known_counts) == incident_count:
+            supported_counts.add(sum(known_counts))
+        if count not in supported_counts:
             raise AgentResponseValidationError(
                 "The briefing reports an unsupported injury or fatality count."
             )
@@ -144,11 +154,11 @@ def _validate_generated_claims(
         raise AgentResponseValidationError("The model returned an invalid briefing.")
 
     text = " ".join(generated[field] for field in ("overview", "potential_impacts"))
-    _validate_count_claims(text, briefing)
     if _CURRENT_CONDITION_CLAIM.search(text):
         raise AgentResponseValidationError(
             "The briefing makes an unsupported claim about current traffic conditions."
         )
+    _validate_count_claims(text, briefing)
 
     mentioned_boroughs = {
         name.casefold()

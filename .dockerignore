@@ -1,0 +1,9 @@
+.git
+.env
+.env.*
+.venv
+venv
+frontend
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache

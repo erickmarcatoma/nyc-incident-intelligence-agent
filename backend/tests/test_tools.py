@@ -125,6 +125,53 @@ def test_query_reports_source_failure_without_falling_back_to_fixtures(
         query_nyc_open_data_incidents("Queens")
 
 
+@pytest.mark.parametrize(
+    "failure",
+    [
+        httpx.TimeoutException("request timed out"),
+        httpx.HTTPStatusError(
+            "service unavailable",
+            request=httpx.Request("GET", tools.DATASET_URL),
+            response=httpx.Response(
+                503,
+                request=httpx.Request("GET", tools.DATASET_URL),
+            ),
+        ),
+    ],
+)
+def test_query_maps_timeout_and_http_errors_to_data_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+    failure: Exception,
+) -> None:
+    def fail_get(*args: Any, **kwargs: Any) -> FakeResponse:
+        raise failure
+
+    monkeypatch.setattr(tools.httpx, "get", fail_get)
+
+    with pytest.raises(IncidentDataUnavailableError, match="could not be reached"):
+        query_nyc_open_data_incidents("Queens")
+
+
+def test_query_reports_old_event_timestamp_and_historical_limitations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    old_record = collision_record(crash_date="2018-01-02T00:00:00.000")
+    monkeypatch.setattr(
+        tools.httpx,
+        "get",
+        lambda *args, **kwargs: FakeResponse([old_record]),
+    )
+
+    result = query_nyc_open_data_incidents("Queens")
+
+    assert result["data_freshness"].startswith(
+        "Most recent record returned: January 02, 2018 06:30 AM"
+    )
+    assert "publication can lag" in result["data_freshness"]
+    assert "not a real-time traffic feed" in result["data_freshness"]
+    assert "historical crash" in result["potential_impacts"]
+
+
 def test_query_rejects_unusable_dataset_records(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

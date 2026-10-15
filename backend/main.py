@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Any
 
 from fastapi import FastAPI
@@ -15,6 +16,21 @@ from backend.tools import IncidentDataUnavailableError
 
 
 logger = logging.getLogger(__name__)
+DEFAULT_FRONTEND_ORIGINS = (
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+)
+
+
+def _frontend_origins() -> list[str]:
+    configured_origins = os.getenv("FRONTEND_ORIGINS")
+    if configured_origins is None:
+        return list(DEFAULT_FRONTEND_ORIGINS)
+    return [
+        origin.strip()
+        for origin in configured_origins.split(",")
+        if origin.strip()
+    ]
 
 app = FastAPI(
     title="NYC Incident Intelligence Agent API",
@@ -27,11 +43,16 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=_frontend_origins(),
     allow_credentials=False,
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
+
+
+@app.get("/healthz")
+def health_check() -> dict[str, str]:
+    return {"status": "ok"}
 
 
 @app.post("/api/briefing", response_model=BriefingResponse)
