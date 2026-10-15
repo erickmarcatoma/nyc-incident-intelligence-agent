@@ -8,7 +8,7 @@ def run_case(question: str, borough: Borough) -> None:
     trace = {
         "question": question,
         "borough": borough.value,
-        "final_answer": run_agent(question, borough),
+        "final_answer": run_agent(borough),
     }
     print(json.dumps(trace, indent=2))
 

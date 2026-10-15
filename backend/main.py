@@ -58,7 +58,7 @@ def health_check() -> dict[str, str]:
 @app.post("/api/briefing", response_model=BriefingResponse)
 def create_briefing(request: BriefingRequest) -> dict[str, Any]:
     try:
-        return run_agent(request.question, request.borough)
+        return run_agent(request.borough)
     except IncidentDataUnavailableError:
         logger.exception("Could not retrieve NYC Open Data collision records.")
         return BriefingFailureResponse(

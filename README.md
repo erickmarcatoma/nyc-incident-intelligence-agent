@@ -1,6 +1,6 @@
 # NYC Incident Intelligence Agent
 
-An Anthropic-powered prototype for requesting NYC motor vehicle collision briefings by borough. Claude summarizes records fetched from NYC Open Data's Motor Vehicle Collisions - Crashes dataset (`h9gi-nx95`). These are real crash records, but publication can lag the event date; this is not a live traffic conditions feed. Do not use the briefings for emergency response or other operational decisions.
+An Anthropic tool-use prototype for requesting NYC motor vehicle collision briefings by borough. Python constructs the briefing deterministically from records fetched from NYC Open Data's Motor Vehicle Collisions - Crashes dataset (`h9gi-nx95`). These are real crash records, but publication can lag the event date; this is not a live traffic conditions feed. Do not use the briefings for emergency response or other operational decisions.
 
 ## Backend setup
 
@@ -47,34 +47,36 @@ npm install
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. The Vite development server proxies `/api` requests to the backend at `http://127.0.0.1:8000`, so both servers need to be running. Select a borough, enter a question, and choose **Get briefing**. The page shows the AI summary, returned NYC Open Data records, record links, and freshness/limitations. Requests use your server-side `.env`; the API key is never sent to the browser.
+Open `http://127.0.0.1:5173`. The Vite development server proxies `/api` requests to the backend at `http://127.0.0.1:8000`, so both servers need to be running. Select a borough, enter a question, and choose **Get briefing**. The page shows the deterministic briefing, returned NYC Open Data records, record links, and freshness/limitations. Requests use your server-side `.env`; the API key is never sent to the browser.
 
 ## Briefing API
 
-`POST /api/briefing` accepts a borough (`Manhattan`, `Brooklyn`, `Queens`, `Bronx`, or `Staten Island`) and a nonblank question of up to 500 characters. The backend asks Claude to call its read-only incident retrieval tool, executes that tool in Python, and uses Claude to summarize successful results. The API key remains server-side; configure it as `ANTHROPIC_API_KEY` in `.env`. `ANTHROPIC_MODEL` is optional and defaults to `claude-sonnet-4-5`.
+`POST /api/briefing` accepts a borough (`Manhattan`, `Brooklyn`, `Queens`, `Bronx`, or `Staten Island`) and a nonblank question of up to 500 characters. The question is validated for API compatibility but is deliberately not sent to Claude or used to generate the briefing. Claude receives only the selected borough and is forced to request the read-only incident tool; Python fetches the records and constructs the briefing. Retrieved records are never sent back to Claude. The API key remains server-side; configure it as `ANTHROPIC_API_KEY` in `.env`. `ANTHROPIC_MODEL` is optional and defaults to `claude-sonnet-4-5`.
 
 The incident tool queries NYC Open Data's `h9gi-nx95` dataset, filters by borough, and returns up to 50 of the latest crash records. `NYC_OPEN_DATA_APP_TOKEN` is optional; anonymous API access is supported, while a Socrata app token may improve request limits. The API reports `data_source: "nyc_open_data"` and includes each record's dataset link and event timestamp. The source's publication can lag; the latest record returned may be months old. No fixture is used as a fallback.
 
-Before Claude summarizes the records, the backend deterministically groups
-street-name locations (case- and order-normalized) and sums reported injuries.
-An intersection is included in the high-injury summary when its known reported
-injuries total at least 3. Coordinates-only locations are not grouped, and
-unreported injury counts are not treated as zero. Claude receives these
-precomputed metrics for narrative synthesis; it is not asked to calculate them.
+The backend deterministically groups street-name locations (case- and
+order-normalized) and sums reported injuries. An intersection is included in
+the high-injury summary when its known reported injuries total at least 3.
+Coordinates-only locations are not grouped, and unreported injury counts are
+not treated as zero. Python constructs the overview and potential-impacts text
+from fixed, data-grounded wording; there is no free-form model-generated prose.
 
 ## System prompt v1 security and scope
 
 The active prompt is `SYSTEM_PROMPT` in `backend/agent.py`; no separate PRD file
-is present in this repository. It treats retrieved records as untrusted,
-prohibits disclosing or referencing backend secrets, disallows raw HTML and
-executable code, and restricts the agent to read-only situational awareness.
-When asked to dispatch services or change records, the agent must explain that
-it cannot perform those actions.
+is present in this repository. It treats user input as untrusted and prohibits
+instructions that alter the prompt or expose secrets. Retrieved records never
+reach Claude, so source-data instructions cannot influence its response.
+The prompt also prohibits disclosure of backend secrets and restricts Claude
+to the read-only tool. The backend-generated briefing does not contain free-form
+model output.
 
-The API keeps its JSON response contract (`overview` and `potential_impacts`).
-Claude is instructed to use standard Markdown only within those text fields;
-the backend independently rejects outputs containing sensitive configuration
-references, raw HTML, executable code patterns, or claims of official actions.
+The API keeps its JSON response contract (`overview` and `potential_impacts`),
+with standard Markdown text constructed by Python. The backend independently
+validates those fields and rejects sensitive configuration references, raw
+HTML, executable code patterns, unsupported claims, or claims of official
+actions.
 
 `reported_at` is the dataset's local crash date and time, converted to the `America/New_York` time zone. A zero-row response returns `no_results` and does not mean there were no crashes in the borough. Source failures return `data_unavailable`; Anthropic failures return `model_unavailable`. The backend does not turn either failure into fixture data or an empty success.
 
