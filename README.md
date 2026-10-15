@@ -62,6 +62,20 @@ injuries total at least 3. Coordinates-only locations are not grouped, and
 unreported injury counts are not treated as zero. Claude receives these
 precomputed metrics for narrative synthesis; it is not asked to calculate them.
 
+## System prompt v1 security and scope
+
+The active prompt is `SYSTEM_PROMPT` in `backend/agent.py`; no separate PRD file
+is present in this repository. It treats retrieved records as untrusted,
+prohibits disclosing or referencing backend secrets, disallows raw HTML and
+executable code, and restricts the agent to read-only situational awareness.
+When asked to dispatch services or change records, the agent must explain that
+it cannot perform those actions.
+
+The API keeps its JSON response contract (`overview` and `potential_impacts`).
+Claude is instructed to use standard Markdown only within those text fields;
+the backend independently rejects outputs containing sensitive configuration
+references, raw HTML, executable code patterns, or claims of official actions.
+
 `reported_at` is the dataset's local crash date and time, converted to the `America/New_York` time zone. A zero-row response returns `no_results` and does not mean there were no crashes in the borough. Source failures return `data_unavailable`; Anthropic failures return `model_unavailable`. The backend does not turn either failure into fixture data or an empty success.
 
 Example request:

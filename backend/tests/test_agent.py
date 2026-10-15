@@ -104,6 +104,17 @@ def test_incident_tool_has_flat_documented_borough_contract() -> None:
     }
 
 
+def test_system_prompt_includes_security_and_read_only_scope_boundaries() -> None:
+    assert "SECURITY & SCOPE BOUNDARIES:" in agent.SYSTEM_PROMPT
+    assert "query_nyc_open_data_incidents" in agent.SYSTEM_PROMPT
+    assert "Never output, confirm, or reference backend credentials" in (
+        agent.SYSTEM_PROMPT
+    )
+    assert "standard Markdown formatting" in agent.SYSTEM_PROMPT
+    assert "restricted to read-only situational awareness" in agent.SYSTEM_PROMPT
+    assert "required JSON object as the API envelope" in agent.SYSTEM_PROMPT
+
+
 def test_run_agent_uses_tool_result_and_preserves_source_fields(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -278,6 +289,53 @@ def test_validate_agent_response_rejects_incorrect_source_attribution() -> None:
             },
             agent.Borough.QUEENS,
         )
+
+
+@pytest.mark.parametrize(
+    ("overview", "message"),
+    [
+        ("I cannot provide an API key.", "sensitive backend configuration"),
+        ("<script>alert(1)</script>", "raw HTML"),
+        ("```javascript\nalert(1)\n```", "executable code"),
+        ("alert(1)", "executable code"),
+        ("I dispatched emergency services.", "official action"),
+        ("I can modify government records.", "official action"),
+    ],
+)
+def test_validate_agent_response_rejects_security_boundary_violations(
+    overview: str,
+    message: str,
+) -> None:
+    with pytest.raises(AgentResponseValidationError, match=message):
+        validate_agent_response(
+            successful_tool_result(),
+            {
+                "overview": overview,
+                "potential_impacts": (
+                    "Historical records do not establish current traffic."
+                ),
+            },
+            agent.Borough.QUEENS,
+        )
+
+
+def test_validate_agent_response_accepts_read_only_capability_refusal() -> None:
+    result = validate_agent_response(
+        successful_tool_result(),
+        {
+            "overview": (
+                "I can provide read-only situational awareness from the "
+                "reported collision record."
+            ),
+            "potential_impacts": (
+                "I cannot dispatch emergency services or modify government "
+                "records."
+            ),
+        },
+        agent.Borough.QUEENS,
+    )
+
+    assert result["status"] == "success"
 
 
 def test_validate_agent_response_rejects_records_for_another_borough() -> None:

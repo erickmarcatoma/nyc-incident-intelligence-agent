@@ -62,6 +62,33 @@ _CURRENT_CONDITION_CLAIM = re.compile(
     r"still\s+(?:active|ongoing|closed|open|clear|congested|affecting|blocking))\b",
     re.IGNORECASE,
 )
+_SENSITIVE_REFERENCE = re.compile(
+    r"\b(?:api[\s_-]?keys?|credentials?|environment variables?|secrets?)\b"
+    r"|\b(?:access|auth|bearer)\s+tokens?\b"
+    r"|\bANTHROPIC_[A-Z0-9_]+\b"
+    r"|\bNYC_OPEN_DATA_APP_TOKEN\b"
+    r"|\bsk-ant-[A-Za-z0-9_-]{8,}\b",
+    re.IGNORECASE,
+)
+_RAW_HTML = re.compile(r"</?[A-Za-z][^>]*>")
+_EXECUTABLE_TEXT = re.compile(
+    r"```|javascript:|\bfunction\s+\w+\s*\(|\b(?:const|let|var)\s+"
+    r"[A-Za-z_$][\w$]*\s*=|\b(?:document|window)\."
+    r"|\b(?:eval|alert|fetch|setTimeout|setInterval)\s*\("
+    r"|\bconsole\.\w+\s*\(",
+    re.IGNORECASE,
+)
+_CLAIMED_OPERATION = re.compile(
+    r"\b(?:I|we)\s+(?:(?:have\s+)?"
+    r"(?:dispatched|sent|contacted|modified|updated|changed|submitted|"
+    r"approved|ordered|authorized)|(?:can|will|am able to)\s+"
+    r"(?:dispatch|send|contact|modify|update|change|submit|approve|order|"
+    r"authorize|make official decisions))\b"
+    r"|\b(?:emergency services|government records|municipal records)\s+"
+    r"(?:have been|were|are being)\s+"
+    r"(?:dispatched|sent|modified|updated|changed|submitted|approved)\b",
+    re.IGNORECASE,
+)
 
 
 class AgentResponseValidationError(ValueError):
@@ -276,6 +303,22 @@ def _validate_generated_claims(
         raise AgentResponseValidationError("The model returned an invalid briefing.")
 
     text = " ".join(generated[field] for field in ("overview", "potential_impacts"))
+    if _SENSITIVE_REFERENCE.search(text):
+        raise AgentResponseValidationError(
+            "The briefing references sensitive backend configuration."
+        )
+    if _RAW_HTML.search(text):
+        raise AgentResponseValidationError(
+            "The briefing contains raw HTML, which is not allowed."
+        )
+    if _EXECUTABLE_TEXT.search(text):
+        raise AgentResponseValidationError(
+            "The briefing contains executable code, which is not allowed."
+        )
+    if _CLAIMED_OPERATION.search(text):
+        raise AgentResponseValidationError(
+            "The briefing claims an official action outside the agent's read-only scope."
+        )
     if _CURRENT_CONDITION_CLAIM.search(text):
         raise AgentResponseValidationError(
             "The briefing makes an unsupported claim about current traffic conditions."
