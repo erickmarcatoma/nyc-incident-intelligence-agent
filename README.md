@@ -55,6 +55,13 @@ Open `http://127.0.0.1:5173`. The Vite development server proxies `/api` request
 
 The incident tool queries NYC Open Data's `h9gi-nx95` dataset, filters by borough, and returns up to 50 of the latest crash records. `NYC_OPEN_DATA_APP_TOKEN` is optional; anonymous API access is supported, while a Socrata app token may improve request limits. The API reports `data_source: "nyc_open_data"` and includes each record's dataset link and event timestamp. The source's publication can lag; the latest record returned may be months old. No fixture is used as a fallback.
 
+Before Claude summarizes the records, the backend deterministically groups
+street-name locations (case- and order-normalized) and sums reported injuries.
+An intersection is included in the high-injury summary when its known reported
+injuries total at least 3. Coordinates-only locations are not grouped, and
+unreported injury counts are not treated as zero. Claude receives these
+precomputed metrics for narrative synthesis; it is not asked to calculate them.
+
 `reported_at` is the dataset's local crash date and time, converted to the `America/New_York` time zone. A zero-row response returns `no_results` and does not mean there were no crashes in the borough. Source failures return `data_unavailable`; Anthropic failures return `model_unavailable`. The backend does not turn either failure into fixture data or an empty success.
 
 Example request:
