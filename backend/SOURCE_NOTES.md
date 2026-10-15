@@ -1,20 +1,52 @@
-# 511NY access and field-mapping notes
+# NYC incident data source
 
-**Checked:** October 13, 2026  
-**Status:** Unverified; the Day 1 API uses fictional fixtures only.
+**Checked:** October 15, 2026
+**Runtime source:** NYC Open Data, **Motor Vehicle Collisions - Crashes**
+**Dataset identifier:** `h9gi-nx95`
 
-The official URLs checked were [511NY Developer Resources](https://511ny.org/developer-resources) and [511NY API](https://511ny.org/api). Both rendered as the general 511NY traffic and travel information page; the retrieved page content did not expose developer documentation, an API endpoint, or a response schema. No API credentials were used, and no live request or real incident payload was retrieved.
+## Verified access
 
-| Contract field | 511NY field mapping | Status |
-|---|---|---|
-| `id` | Unknown | Unverified |
-| `location` | Unknown | Unverified |
-| `type` | Unknown | Unverified |
-| `reported_status` | Unknown | Unverified |
-| `reported_at` | Unknown | Unverified |
-| `source` / `source_url` | Unknown | Unverified |
-| Borough association | Unknown | Unverified |
+- Dataset page: <https://data.cityofnewyork.us/d/h9gi-nx95>
+- Socrata JSON endpoint: <https://data.cityofnewyork.us/resource/h9gi-nx95.json>
+- API access is available without an app token for basic queries. Set
+  `NYC_OPEN_DATA_APP_TOKEN` in `.env` to send an optional Socrata app token.
+- A live endpoint request returned records with fields including `collision_id`,
+  `crash_date`, `crash_time`, `borough`, street names, latitude/longitude,
+  injury/fatality counts, contributing factors, and vehicle types.
+- The newest non-null-borough record returned during the check was dated
+  **June 11, 2026**. The dataset was therefore over four months behind the
+  current date at verification time.
 
-API access requirements, authentication, endpoint, rate limits, licensing, borough mapping, and timestamp semantics also remain unverified. Do not map assumed field names or describe fixture records as live data.
+This is real, official crash-report data, but it is **not a real-time traffic
+incident feed**. It describes collisions reported to NYPD, not all roadway
+disruptions or present road conditions. Do not infer that a road is currently
+closed, congested, or clear from these records.
 
-**Next:** locate official machine-readable API documentation or a provider contact; request credentials if required; then save a sanitized sample response and complete this mapping before implementing the live-source adapter.
+## API mapping used by the adapter
+
+| Contract field | NYC Open Data field / transformation |
+|---|---|
+| `id` | `collision_id` |
+| `location` | Available on/cross/off street names; coordinates if no street name is provided; otherwise explicitly “Location not reported” |
+| `type` | Constant label “Motor vehicle collision” |
+| `reported_status` | `number_of_persons_injured` and `number_of_persons_killed`, preserving missing values as “not reported” |
+| `reported_at` | `crash_date` + `crash_time`, interpreted in `America/New_York` |
+| `source` | NYC Open Data dataset name |
+| `source_url` | JSON resource URL filtered by `collision_id` |
+| Borough | Exact `borough` filter, normalized to the dataset's uppercase values |
+
+The adapter requests at most 50 newest records by crash date/time. The dataset's
+publication can lag, so `data_freshness` reports the newest event timestamp in
+the returned records and explicitly warns that it is not real-time. `no_results`
+only means the query returned no rows; it is not a claim that the borough had no
+crashes.
+
+Network errors, non-success HTTP responses, invalid JSON, and unusable record
+fields produce `data_unavailable`. The runtime never falls back to demo fixtures.
+
+## 511NY
+
+511NY remains unverified and is not used by the application. Its public
+developer-resources page did not expose a documented endpoint or schema during
+the earlier check. Do not describe this app as using 511NY or current live
+traffic conditions.

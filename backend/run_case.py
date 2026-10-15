@@ -1,13 +1,17 @@
 import json
-from pathlib import Path
-from agent import run_agent
 
-def load_fixture(name):
-    return json.loads(Path(__file__).parent.joinpath("fixtures", f"{name}.json").read_text())
+from backend.agent import run_agent
+from backend.schemas import Borough
 
-def run_case(fixture_name, question):
-    trace = {"question": question, "tool_result": load_fixture(fixture_name)}
-    trace["final_answer"] = run_agent(question, trace["tool_result"])
+
+def run_case(question: str, borough: Borough) -> None:
+    trace = {
+        "question": question,
+        "borough": borough.value,
+        "final_answer": run_agent(question, borough),
+    }
     print(json.dumps(trace, indent=2))
 
-run_case("injection_incident", "Any incidents in Queens?")
+
+if __name__ == "__main__":
+    run_case("What collision reports are available?", Borough.QUEENS)

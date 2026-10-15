@@ -1,12 +1,56 @@
+from typing import Any
+
+import pytest
 from fastapi.testclient import TestClient
 
+from backend import main
+from backend.agent import AgentUnavailableError
 from backend.main import app
+from backend.schemas import Borough
+from backend.tools import IncidentDataUnavailableError
 
 
 client = TestClient(app)
 
 
-def test_briefing_returns_fixture_contract() -> None:
+def live_result(borough: Borough) -> dict[str, Any]:
+    return {
+        "status": "success",
+        "borough": borough.value,
+        "data_source": "nyc_open_data",
+        "overview": "One reported collision record was returned.",
+        "incidents": [
+            {
+                "id": "4905715",
+                "location": "QUEENS BLVD, MAIN ST",
+                "type": "Motor vehicle collision",
+                "reported_status": (
+                    "Reported persons injured: 2; persons killed: 0."
+                ),
+                "reported_at": "2026-06-11T06:30:00-04:00",
+                "source": "NYC Open Data: Motor Vehicle Collisions - Crashes",
+                "source_url": (
+                    "https://data.cityofnewyork.us/resource/"
+                    "h9gi-nx95.json?collision_id=4905715"
+                ),
+            }
+        ],
+        "potential_impacts": "This historical record does not show current traffic.",
+        "data_freshness": "Most recent record returned: June 11, 2026.",
+        "limitations": "Historical NYC Open Data crash records, not real-time traffic.",
+    }
+
+
+@pytest.fixture(autouse=True)
+def use_test_agent(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        main,
+        "run_agent",
+        lambda question, borough: live_result(borough),
+    )
+
+
+def test_briefing_returns_nyc_open_data_contract() -> None:
     response = client.post(
         "/api/briefing",
         json={
@@ -19,12 +63,12 @@ def test_briefing_returns_fixture_contract() -> None:
     body = response.json()
     assert body["status"] == "success"
     assert body["borough"] == "Queens"
-    assert body["data_source"] == "fixture"
-    assert body["incidents"][0]["id"] == "FIXTURE-001"
-    assert body["incidents"][0]["reported_at"] == "2026-10-08T07:15:00-04:00"
-    assert body["incidents"][0]["source_url"] is None
-    assert "not a real incident" in body["incidents"][0]["location"]
-    assert "No 511NY request was made" in body["limitations"]
+    assert body["data_source"] == "nyc_open_data"
+    assert body["incidents"][0]["id"] == "4905715"
+    assert body["incidents"][0]["reported_at"] == "2026-06-11T06:30:00-04:00"
+    assert body["incidents"][0]["source_url"].startswith(
+        "https://data.cityofnewyork.us/"
+    )
 
 
 def test_briefing_rejects_invalid_borough_and_blank_question() -> None:
@@ -42,22 +86,14 @@ def test_briefing_rejects_invalid_borough_and_blank_question() -> None:
 
 
 def test_briefing_accepts_every_contract_borough() -> None:
-    expected_statuses = {
-        "Manhattan": "data_unavailable",
-        "Brooklyn": "no_results",
-        "Queens": "success",
-        "Bronx": "model_unavailable",
-        "Staten Island": "data_unavailable",
-    }
-
-    for borough, expected_status in expected_statuses.items():
+    for borough in Borough:
         response = client.post(
             "/api/briefing",
-            json={"borough": borough, "question": "Any fixture incidents?"},
+            json={"borough": borough.value, "question": "Any crash reports?"},
         )
         assert response.status_code == 200
-        assert response.json()["borough"] == borough
-        assert response.json()["status"] == expected_status
+        assert response.json()["borough"] == borough.value
+        assert response.json()["data_source"] == "nyc_open_data"
 
 
 def test_frontend_development_origin_can_call_api() -> None:
@@ -71,3 +107,62 @@ def test_frontend_development_origin_can_call_api() -> None:
 
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
+
+
+def test_briefing_passes_question_and_borough_to_agent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    called_with: list[tuple[str, str]] = []
+
+    def fake_agent(question: str, borough: Borough) -> dict[str, Any]:
+        called_with.append((question, borough.value))
+        return live_result(borough)
+
+    monkeypatch.setattr(main, "run_agent", fake_agent)
+    response = client.post(
+        "/api/briefing",
+        json={"borough": "Queens", "question": "Any major delays?"},
+    )
+
+    assert response.status_code == 200
+    assert called_with == [("Any major delays?", "Queens")]
+
+
+def test_agent_failure_returns_model_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_agent(question: str, borough: Borough) -> dict[str, Any]:
+        raise AgentUnavailableError
+
+    monkeypatch.setattr(main, "run_agent", fail_agent)
+    response = client.post(
+        "/api/briefing",
+        json={"borough": "Queens", "question": "Any incidents?"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "model_unavailable",
+        "borough": "Queens",
+        "data_source": None,
+        "message": (
+            "The briefing model is currently unavailable. Please try again later."
+        ),
+    }
+
+
+def test_data_source_failure_returns_data_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_agent(question: str, borough: Borough) -> dict[str, Any]:
+        raise IncidentDataUnavailableError
+
+    monkeypatch.setattr(main, "run_agent", fail_agent)
+    response = client.post(
+        "/api/briefing",
+        json={"borough": "Queens", "question": "Any collision reports?"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "data_unavailable"
+    assert response.json()["data_source"] == "nyc_open_data"

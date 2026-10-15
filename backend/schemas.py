@@ -15,6 +15,7 @@ class Borough(str, Enum):
 
 class DataSource(str, Enum):
     FIXTURE = "fixture"
+    NYC_OPEN_DATA = "nyc_open_data"
     LIVE = "live"
 
 
