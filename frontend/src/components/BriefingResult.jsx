@@ -1,4 +1,5 @@
 import IncidentCard from "./IncidentCard.jsx";
+import { toBullets } from "../incidentUtils.js";
 
 const FAILURE_COPY = {
   no_results: {
@@ -16,76 +17,92 @@ const FAILURE_COPY = {
   },
 };
 
-export default function BriefingResult({ result }) {
+function Section({ number, title, children, id }) {
+  return (
+    <section className="brief-section" id={id}>
+      <h3 className="brief-heading">
+        <span className="brief-number">{number}</span>
+        {title}
+        <span className="brief-rule" aria-hidden="true" />
+      </h3>
+      <div className="brief-body">{children}</div>
+    </section>
+  );
+}
+
+export function BriefingShell({ updatedAt, children }) {
+  return (
+    <article className="briefing-card" aria-live="polite">
+      <header className="briefing-card-header">
+        <span className="briefing-title">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2.5c.6 4.6 2.9 6.9 7.5 7.5-4.6.6-6.9 2.9-7.5 7.5-.6-4.6-2.9-6.9-7.5-7.5 4.6-.6 6.9-2.9 7.5-7.5Z" />
+          </svg>
+          AI INTELLIGENCE BRIEFING
+        </span>
+        {updatedAt && <span className="briefing-updated">Updated {updatedAt}</span>}
+      </header>
+      {children}
+    </article>
+  );
+}
+
+export default function BriefingResult({ result, updatedAt }) {
   if (result.status !== "success") {
     const copy = FAILURE_COPY[result.status] ?? {
       title: "A briefing could not be generated",
       detail: result.message ?? "The service returned an unrecognized response.",
     };
-
     return (
-      <section className="result-panel failure-panel" aria-live="polite">
-        <div className="result-section-heading">
-          <span className="result-icon failure-icon" aria-hidden="true">!</span>
+      <BriefingShell updatedAt={updatedAt}>
+        <div className="briefing-state is-failure">
+          <span className="state-icon" aria-hidden="true">!</span>
           <div>
-            <span className="step-label">BRIEFING STATUS</span>
-            <h3>{copy.title}</h3>
+            <strong>{copy.title}</strong>
+            <p>{result.message || copy.detail}</p>
           </div>
         </div>
-        <p>{result.message || copy.detail}</p>
-      </section>
+      </BriefingShell>
     );
   }
 
+  const impacts = toBullets(result.potential_impacts);
+
   return (
-    <section className="result-panel" aria-live="polite">
-      <div className="result-heading">
-        <div className="result-section-heading">
-          <span className="result-icon" aria-hidden="true">✓</span>
+    <BriefingShell updatedAt={updatedAt}>
+      <Section number={1} title="INCIDENT OVERVIEW">
+        <p className="overview-text">{result.overview}</p>
+      </Section>
+
+      <Section number={2} title="REPORTED INCIDENTS" id="incidents">
+        <div className="incident-list">
+          {result.incidents.map((incident) => (
+            <IncidentCard key={incident.id} incident={incident} />
+          ))}
+        </div>
+      </Section>
+
+      <Section number={3} title="POTENTIAL IMPACTS">
+        {impacts.length > 1 ? (
+          <ul className="impact-list">
+            {impacts.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="overview-text">{result.potential_impacts}</p>
+        )}
+      </Section>
+
+      <Section number={4} title="DATA FRESHNESS & LIMITATIONS" id="about-data">
+        <div className="freshness-box">
+          <span className="info-icon" aria-hidden="true">i</span>
           <div>
-            <span className="step-label">YOUR BRIEFING</span>
-            <h3>{result.borough} collision briefing</h3>
+            <p>{result.data_freshness}</p>
+            <p className="freshness-note">{result.limitations}</p>
           </div>
         </div>
-        <span className="source-badge">
-          <span className="status-dot" />
-          {result.data_source === "nyc_open_data" ? "NYC Open Data" : result.data_source}
-        </span>
-      </div>
-
-      <div className="briefing-copy">
-        <div className="briefing-section">
-          <span className="section-kicker">OVERVIEW</span>
-          <p>{result.overview}</p>
-        </div>
-        <div className="briefing-section impacts-section">
-          <span className="section-kicker">POTENTIAL IMPACTS</span>
-          <p>{result.potential_impacts}</p>
-        </div>
-      </div>
-
-      <div className="records-heading">
-        <div>
-          <span className="section-kicker">SOURCE RECORDS</span>
-          <h3>{result.incidents.length} reported collisions</h3>
-        </div>
-        <span className="records-caption">Most recent first · New York time</span>
-      </div>
-
-      <div className="incident-list">
-        {result.incidents.map((incident) => (
-          <IncidentCard key={incident.id} incident={incident} />
-        ))}
-      </div>
-
-      <div className="freshness-panel">
-        <span className="freshness-icon" aria-hidden="true">◷</span>
-        <div>
-          <strong>Data freshness &amp; limitations</strong>
-          <p>{result.data_freshness}</p>
-          <p>{result.limitations}</p>
-        </div>
-      </div>
-    </section>
+      </Section>
+    </BriefingShell>
   );
 }
